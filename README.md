@@ -3,6 +3,17 @@
 This crate can be used to mutably borrow the contents of an `Rc`, if there are no other
 strong references, despite any `Weak` references.
 
+## ⚠ Warning ⚠
+
+This crate is unsound, as it [can result in use-after-free in safe code](https://github.com/rust-lang/libs-team/issues/112#issuecomment-1282274231).
+
+```rust
+let mut rc = Rc::new("asdf".to_string());
+std::mem::forget(Rc::borrow_mut(&mut rc));
+drop(rc.clone());
+println!("use after free: {rc:?}");
+```
+
 ## Example
 
 ```rust
@@ -27,7 +38,7 @@ drop(mutable);
 assert_eq!(*weak.upgrade().unwrap(), 2);
 ```
 
-## Warnings
+## Other Warnings
 
 - Requires `nightly` Rust
 - Uses `unsafe`

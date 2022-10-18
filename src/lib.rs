@@ -201,4 +201,14 @@ mod tests {
         rc.dead.set(true);
         drop(rc);
     }
+
+    /// https://github.com/rust-lang/libs-team/issues/112#issuecomment-1282274231
+    #[test]
+    #[ignore = "fails"]
+    fn use_after_free() {
+        let mut rc = Rc::new("asdf".to_string());
+        std::mem::forget(Rc::borrow_mut(&mut rc));
+        drop(rc.clone());
+        println!("use after free: {rc:?}");
+    }
 }
