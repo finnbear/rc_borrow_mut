@@ -14,6 +14,9 @@ drop(rc.clone());
 println!("use after free: {rc:?}");
 ```
 
+Also, this crate requires specific Rust nightly versions. Currently, it targets
+`nightly-2026-03-01` and may not compile on other versions.
+
 ## Example
 
 ```rust

@@ -1,7 +1,5 @@
-#![feature(alloc_layout_extra)]
-#![feature(pointer_byte_offsets)]
+#![feature(ptr_alignment_type)]
 #![feature(layout_for_ptr)]
-#![feature(cell_update)]
 
 use std::fmt;
 use std::fmt::{Debug, Formatter};
@@ -14,14 +12,14 @@ pub trait RcBorrowMut<T: ?Sized> {
     /// # Panics
     ///
     /// If there are other strong references.
-    fn borrow_mut(me: &mut Self) -> BorrowRefMut<T> {
+    fn borrow_mut(me: &mut Self) -> BorrowRefMut<'_, T> {
         Self::try_borrow_mut(me).unwrap()
     }
 
     /// Mutably borrows the contents of the Rc.
     ///
     /// Succeeds if the argument is the only strong reference.
-    fn try_borrow_mut(me: &mut Self) -> Result<BorrowRefMut<T>, OtherStrongReferencesExist>;
+    fn try_borrow_mut(me: &mut Self) -> Result<BorrowRefMut<'_, T>, OtherStrongReferencesExist>;
 }
 
 pub struct OtherStrongReferencesExist;
@@ -79,7 +77,7 @@ impl<T: ?Sized> Drop for BorrowRefMut<'_, T> {
 }
 
 impl<T: ?Sized> RcBorrowMut<T> for Rc<T> {
-    fn try_borrow_mut(me: &mut Self) -> Result<BorrowRefMut<T>, OtherStrongReferencesExist> {
+    fn try_borrow_mut(me: &mut Self) -> Result<BorrowRefMut<'_, T>, OtherStrongReferencesExist> {
         debug_assert_ne!(Rc::strong_count(me), 0);
         if Rc::strong_count(me) > 1 {
             return Err(OtherStrongReferencesExist);
@@ -102,6 +100,7 @@ mod hack {
     use core::alloc::Layout;
     use std::cell::Cell;
     use std::mem::align_of_val_raw;
+    use std::ptr::Alignment;
 
     #[repr(C)]
     pub struct RcBox<T: ?Sized> {
@@ -124,7 +123,7 @@ mod hack {
     #[inline]
     fn data_offset_align(align: usize) -> usize {
         let layout = Layout::new::<RcBox<()>>();
-        layout.size() + layout.padding_needed_for(align)
+        layout.size() + layout.padding_needed_for(Alignment::new(align).unwrap())
     }
 }
 
@@ -180,7 +179,7 @@ mod tests {
     fn dropper() {
         struct Dropper {
             dead: Cell<bool>,
-            dummy: i32,
+            number: i32,
         }
 
         impl Drop for Dropper {
@@ -191,11 +190,11 @@ mod tests {
 
         let mut rc: Rc<Dropper> = Rc::new(Dropper {
             dead: Cell::new(false),
-            dummy: 0,
+            number: 0,
         });
         let weak = Rc::downgrade(&rc);
         let mut mutable = Rc::borrow_mut(&mut rc);
-        mutable.dummy += 1;
+        mutable.number += 1;
         drop(weak);
         drop(mutable);
         rc.dead.set(true);
